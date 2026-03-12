@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Among Us: Space Tasks</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+.hub-header{text-align:center;margin-bottom:2.5rem;}
+.subtitle{font-size:.7rem;color:var(--dim);letter-spacing:2px;margin-top:.4rem;}
+.status-bar{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.4rem;max-width:560px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:.6rem 1.2rem;margin-bottom:2rem;font-size:.68rem;letter-spacing:1px;}
+.pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:5px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem;max-width:560px;width:100%;}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:1.1rem 1.2rem;cursor:pointer;text-decoration:none;display:block;transition:all .2s;position:relative;overflow:hidden;}
+.card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--c,var(--yellow));transform:scaleX(0);transition:transform .25s;}
+.card:hover{border-color:var(--c,var(--yellow));transform:translateY(-2px);}
+.card:hover::after{transform:scaleX(1);}
+.card-num{font-size:.6rem;color:var(--dim);letter-spacing:2px;margin-bottom:.4rem;}
+.card-icon{font-size:1.3rem;margin-bottom:.4rem;display:block;}
+.card-title{font-family:'Orbitron',monospace;font-size:.78rem;color:var(--yellow);margin-bottom:.3rem;letter-spacing:1px;}
+.card-desc{font-size:.66rem;color:var(--muted);line-height:1.5;}
+.card-loc{font-size:.6rem;color:var(--dim);margin-top:.55rem;padding-top:.55rem;border-top:1px solid #1a2a1a;}
+.card-loc span{color:var(--text);}
+.diff{position:absolute;top:.7rem;right:.7rem;font-size:.58rem;padding:2px 7px;border-radius:3px;letter-spacing:1px;}
+.easy{background:#0a2a1a;color:var(--green);border:1px solid #0a4a2a;}
+.med{background:#2a1a00;color:#f39c12;border:1px solid #4a3000;}
+.hard{background:#2a0a0a;color:var(--red);border:1px solid #4a1a1a;}
+</style>
+</head>
+<body>
+<div class="hub-header">
+  <h1>🚀 SPACE TASKS</h1>
+  <div class="subtitle">Among Us: Real Life Edition · The Skeld</div>
+</div>
+<div class="status-bar">
+  <div><span class="pulse"></span>10 tasks active</div>
+  <div>Impostor risk: HIGH</div>
+  <div>Emergency meetings: 1</div>
+</div>
+<div class="grid">
+  <a class="card" href="tasks/01-wiring.html" style="--c:#e8ff6b">
+    <div class="diff easy">EASY</div>
+    <div class="card-num">TASK 01</div>
+    <span class="card-icon">⚡</span>
+    <div class="card-title">Fix Wiring</div>
+    <div class="card-desc">Match circuits — answer astronomy trivia to unlock each wire pair.</div>
+    <div class="card-loc">Location: <span>Electrical · Panel B</span></div>
+  </a>
+  <a class="card" href="tasks/02-shields.html" style="--c:#2ecc71">
+    <div class="diff med">MED</div>
+    <div class="card-num">TASK 02</div>
+    <span class="card-icon">🛡</span>
+    <div class="card-title">Calibrate Shields</div>
+    <div class="card-desc">Answer space science questions to unlock each frequency target.</div>
+    <div class="card-loc">Location: <span>Shields · Generator A</span></div>
+  </a>
+  <a class="card" href="tasks/03-medbay.html" style="--c:#2ecc71">
+    <div class="diff easy">EASY</div>
+    <div class="card-num">TASK 03</div>
+    <span class="card-icon">🧫</span>
+    <div class="card-title">Submit Sample</div>
+    <div class="card-desc">Quiz yourself on planets — each correct answer reveals your sample ID.</div>
+    <div class="card-loc">Location: <span>MedBay · Room 3</span></div>
+  </a>
+  <a class="card" href="tasks/04-chute.html" style="--c:#f39c12">
+    <div class="diff easy">EASY</div>
+    <div class="card-num">TASK 04</div>
+    <span class="card-icon">🗑</span>
+    <div class="card-title">Empty Chute</div>
+    <div class="card-desc">Sort space debris into the right bins by identifying each material type.</div>
+    <div class="card-loc">Location: <span>Storage · Chute 4</span></div>
+  </a>
+  <a class="card" href="tasks/05-navigation.html" style="--c:#3498db">
+    <div class="diff hard">HARD</div>
+    <div class="card-num">TASK 05</div>
+    <span class="card-icon">🗺</span>
+    <div class="card-title">Chart Course</div>
+    <div class="card-desc">Answer constellation trivia to decode each waypoint coordinate.</div>
+    <div class="card-loc">Location: <span>Navigation · Top Floor</span></div>
+  </a>
+  <a class="card" href="tasks/06-asteroids.html" style="--c:#e74c3c">
+    <div class="diff med">MED</div>
+    <div class="card-num">TASK 06</div>
+    <span class="card-icon">☄️</span>
+    <div class="card-title">Clear Asteroids</div>
+    <div class="card-desc">Identify asteroids by their type before shooting — destroy the right ones.</div>
+    <div class="card-loc">Location: <span>Weapons · Gun Bay</span></div>
+  </a>
+  <a class="card" href="tasks/07-scan.html" style="--c:#e8ff6b">
+    <div class="diff med">MED</div>
+    <div class="card-num">TASK 07</div>
+    <span class="card-icon">📡</span>
+    <div class="card-title">Scan Boarding</div>
+    <div class="card-desc">Complete a space quiz to authenticate each crewmate's boarding pass.</div>
+    <div class="card-loc">Location: <span>Admin · Main Hall</span></div>
+  </a>
+  <a class="card" href="tasks/08-engine.html" style="--c:#f39c12">
+    <div class="diff hard">HARD</div>
+    <div class="card-num">TASK 08</div>
+    <span class="card-icon">🔧</span>
+    <div class="card-title">Fix Engine</div>
+    <div class="card-desc">Solve rocket science trivia to stabilise each engine component.</div>
+    <div class="card-loc">Location: <span>Engine Room · Port Side</span></div>
+  </a>
+  <a class="card" href="tasks/09-o2.html" style="--c:#2ecc71">
+    <div class="diff easy">EASY</div>
+    <div class="card-num">TASK 09</div>
+    <span class="card-icon">🧹</span>
+    <div class="card-title">Clean O2 Filter</div>
+    <div class="card-desc">Find the clogged tiles by answering which gases are NOT in Earth's atmosphere.</div>
+    <div class="card-loc">Location: <span>O2 · Outside Corridor</span></div>
+  </a>
+  <a class="card" href="tasks/10-fuel.html" style="--c:#9b59b6">
+    <div class="diff hard">HARD</div>
+    <div class="card-num">TASK 10</div>
+    <span class="card-icon">🚀</span>
+    <div class="card-title">Fuel Engines</div>
+    <div class="card-desc">Answer 5 hard astronomy questions in a row to authorise the fuel transfer.</div>
+    <div class="card-loc">Location: <span>Lower Engine · Fuel Bay</span></div>
+  </a>
+</div>
+<a class="back-link" href="#" style="margin-top:2rem;color:#3a5a4a;pointer-events:none;">THE SKELD · CREWMATE HQ</a>
+</body>
+</html>
