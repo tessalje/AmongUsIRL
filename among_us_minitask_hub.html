@@ -1,0 +1,163 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Share Tech Mono',monospace;background:#0a0e1a;color:#c8f0d0;min-height:100vh;padding:2rem 1rem;}
+.hub{max-width:900px;margin:0 auto;}
+.header{text-align:center;margin-bottom:2.5rem;}
+.header h1{font-family:'Orbitron',monospace;font-size:2rem;font-weight:700;color:#e8ff6b;letter-spacing:4px;text-transform:uppercase;margin-bottom:.4rem;}
+.header p{font-size:.75rem;color:#5a7a6a;letter-spacing:2px;text-transform:uppercase;}
+.status-bar{display:flex;justify-content:space-between;align-items:center;background:#111a1f;border:1px solid #1a3a2a;border-radius:8px;padding:.6rem 1.2rem;margin-bottom:2rem;font-size:.7rem;letter-spacing:1px;}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#2ecc71;margin-right:6px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.tasks-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem;}
+.task-card{background:#0d1520;border:1px solid #1a3a2a;border-radius:10px;padding:1.2rem;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.task-card:hover{border-color:#e8ff6b;transform:translateY(-2px);background:#111d28;}
+.task-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;}
+.task-card:hover::before{opacity:1;}
+.task-num{font-size:.65rem;color:#3a5a4a;letter-spacing:2px;margin-bottom:.5rem;}
+.task-icon{font-size:1.5rem;margin-bottom:.5rem;display:block;}
+.task-title{font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;color:#e8ff6b;margin-bottom:.4rem;letter-spacing:1px;}
+.task-desc{font-size:.7rem;color:#6a9a7a;line-height:1.5;}
+.task-loc{font-size:.65rem;color:#3a5a4a;margin-top:.6rem;padding-top:.6rem;border-top:1px solid #1a2a1a;}
+.task-loc span{color:#c8f0d0;}
+.difficulty{position:absolute;top:.8rem;right:.8rem;font-size:.6rem;padding:2px 8px;border-radius:3px;letter-spacing:1px;}
+.diff-easy{background:#0a2a1a;color:#2ecc71;border:1px solid #0a4a2a;}
+.diff-med{background:#2a1a00;color:#f39c12;border:1px solid #4a3000;}
+.diff-hard{background:#2a0a0a;color:#e74c3c;border:1px solid #4a1a1a;}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:100;align-items:center;justify-content:center;padding:1rem;}
+.modal-bg.open{display:flex;}
+.modal{background:#0d1520;border:1px solid #2a4a3a;border-radius:12px;max-width:500px;width:100%;padding:2rem;position:relative;max-height:90vh;overflow-y:auto;}
+.modal-close{position:absolute;top:1rem;right:1rem;background:none;border:none;color:#3a5a4a;font-size:1.2rem;cursor:pointer;font-family:inherit;}
+.modal-close:hover{color:#e8ff6b;}
+.modal-title{font-family:'Orbitron',monospace;color:#e8ff6b;font-size:1rem;margin-bottom:.3rem;letter-spacing:2px;}
+.modal-room{font-size:.65rem;color:#3a5a4a;letter-spacing:2px;margin-bottom:1.2rem;}
+.modal-body{font-size:.75rem;color:#8ab09a;line-height:1.7;}
+.launch-btn{display:block;width:100%;margin-top:1.5rem;padding:.8rem;background:#e8ff6b;color:#0a0e1a;border:none;border-radius:6px;font-family:'Orbitron',monospace;font-size:.75rem;font-weight:700;letter-spacing:2px;cursor:pointer;text-decoration:none;text-align:center;transition:all .2s;}
+.launch-btn:hover{background:#fff;transform:scale(1.02);}
+.task-card[data-accent="yellow"]{--accent:#e8ff6b;}
+.task-card[data-accent="teal"]{--accent:#2ecc71;}
+.task-card[data-accent="red"]{--accent:#e74c3c;}
+.task-card[data-accent="blue"]{--accent:#3498db;}
+.task-card[data-accent="orange"]{--accent:#f39c12;}
+.task-card[data-accent="purple"]{--accent:#9b59b6;}
+</style>
+
+<div class="hub">
+  <div class="header">
+    <h1>Crewmate Tasks</h1>
+    <p>Among Us — Real Life Edition · The Skeld</p>
+  </div>
+  <div class="status-bar">
+    <div><span class="status-dot"></span>10 tasks remaining</div>
+    <div>Emergency meetings: 1</div>
+    <div>Impostor risk: ACTIVE</div>
+  </div>
+  <div class="tasks-grid" id="grid"></div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="task-num" id="mNum"></div>
+    <div class="modal-title" id="mTitle"></div>
+    <div class="modal-room" id="mRoom"></div>
+    <div class="modal-body" id="mBody"></div>
+    <a class="launch-btn" id="mBtn" href="#" target="_blank">OPEN TASK →</a>
+  </div>
+</div>
+
+<script>
+const tasks = [
+  {
+    num:"01",icon:"⚡",title:"Fix Wiring",room:"ELECTRICAL",loc:"Basement — Panel B",diff:"easy",accent:"yellow",
+    desc:"Patch the circuit board by matching wire colors",
+    detail:"Head to Panel B in the basement. You'll find a color-coded circuit board with 6 mixed-up wires. Match each colored wire to its correct terminal using the diagram on the wall. You have 90 seconds before the lights go out for everyone.",
+    url:"https://garnet-mite.github.io/amogus-wires/"
+  },
+  {
+    num:"02",icon:"🌡",title:"Calibrate Shields",room:"SHIELDS",loc:"Roof — Generator A",diff:"med",accent:"teal",
+    desc:"Enter the correct frequency sequence to stabilize shields",
+    detail:"Find the frequency dial on Generator A. Using the code displayed on your phone, rotate the dial to each frequency in the correct order, holding each one for exactly 3 seconds. Wrong inputs reset the sequence.",
+    url:"https://among-us-real.github.io/calibrate/"
+  },
+  {
+    num:"03",icon:"🧫",title:"Submit Sample",room:"MEDBAY",loc:"Room 3 — Lab Counter",diff:"easy",accent:"teal",
+    desc:"Place the correct vial into the scanner and run analysis",
+    detail:"Go to Lab Counter in Room 3. You'll see 5 vials labeled A–E. Using your crewmate badge number, look up which sample you need in the logbook on the table. Place it in the scanner and press CONFIRM. Wait for the green light.",
+    url:"https://among-us-irl.github.io/medbay/"
+  },
+  {
+    num:"04",icon:"🗑",title:"Empty Chute",room:"STORAGE",loc:"Hallway B — Chute 4",diff:"easy",accent:"orange",
+    desc:"Dispose of all crates in the correct recycling bins",
+    detail:"In Hallway B, collect all 4 crates near Chute 4. Each crate is labeled with a material: METAL, BIO, PLASMA, or CARBON. Match each to the correct coloured bin in the room. You must do this in silence — no talking allowed.",
+    url:"https://crewmate-tasks.github.io/chute/"
+  },
+  {
+    num:"05",icon:"🗺",title:"Chart Course",room:"NAVIGATION",loc:"Top Floor — Nav Room",diff:"hard",accent:"blue",
+    desc:"Plot a 4-waypoint route on the star map before time runs out",
+    detail:"Using the star coordinates printed on your task card, navigate to the Nav Room terminal. Input your 4 waypoints in order using the keyboard. The map will verify each coordinate. All 4 must be entered within 2 minutes. One typo resets your progress.",
+    url:"https://skeld-nav.github.io/chart/"
+  },
+  {
+    num:"06",icon:"🪨",title:"Clear Asteroids",room:"WEAPONS",loc:"Top Floor — Gun Bay",diff:"med",accent:"red",
+    desc:"Destroy 20 incoming asteroids using the targeting system",
+    detail:"At the Gun Bay terminal, you'll face a 60-second wave of asteroids on screen. Click/tap to destroy them before they reach the ship. Miss more than 5 and the task fails. A partner can call out positions — communication is allowed.",
+    url:"https://skeld-weapons.github.io/asteroids/"
+  },
+  {
+    num:"07",icon:"🔭",title:"Scan Boarding",room:"ADMIN",loc:"Main Hall — Reception",diff:"med",accent:"yellow",
+    desc:"Scan all 8 player badges and verify crew manifest",
+    detail:"Pick up the scanner from Reception. Each crewmate must scan their badge in under 5 seconds. After all 8 badges are scanned, cross-reference the names with the manifest sheet to spot any anomalies. Report to the Admin desk when done.",
+    url:"https://skeld-admin.github.io/scan/"
+  },
+  {
+    num:"08",icon:"🔧",title:"Fix Engine",room:"ENGINE ROOM",loc:"Floor 2 — Port Side",diff:"hard",accent:"orange",
+    desc:"Align all 6 engine components within tolerance",
+    detail:"Open the engine panel on the Port Side. Six components are misaligned — use the wrench to rotate each one until the indicator light turns green. All 6 must be green simultaneously. They drift slowly, so work fast. You have 3 minutes.",
+    url:"https://engine-task.github.io/align/"
+  },
+  {
+    num:"09",icon:"🧹",title:"Clean O2 Filter",room:"O2",loc:"Outside Corridor — Filter Box",diff:"easy",accent:"teal",
+    desc:"Remove debris from the oxygen filter grid",
+    detail:"Find the filter box in the Outside Corridor. Open it and you'll see a 5×5 grid of tiles. Tiles marked with a red dot are clogged — press each one to clear it. Clear all clogged tiles without pressing a clean tile. One wrong press = task failed.",
+    url:"https://o2-filter.github.io/clean/"
+  },
+  {
+    num:"10",icon:"☄️",title:"Fuel Engines",room:"LOWER ENGINE",loc:"Floor 1 — Fuel Bay",diff:"hard",accent:"purple",
+    desc:"Carry and dock the fuel canister in under 60 seconds",
+    detail:"Collect the fuel canister from the storage closet. Carry it through the obstacle course in the hallway to the Lower Engine fuel dock. You cannot run with the canister. If you drop it you must return to the start. No help from other crewmates allowed.",
+    url:"https://lower-engine.github.io/fuel/"
+  }
+];
+
+const grid = document.getElementById('grid');
+tasks.forEach(t => {
+  const card = document.createElement('div');
+  card.className = 'task-card';
+  card.setAttribute('data-accent', t.accent);
+  card.innerHTML = `
+    <div class="task-num">TASK ${t.num}</div>
+    <span class="task-icon">${t.icon}</span>
+    <div class="task-title">${t.title}</div>
+    <div class="task-desc">${t.desc}</div>
+    <div class="task-loc">Location: <span>${t.loc}</span></div>
+    <div class="difficulty diff-${t.diff === 'easy' ? 'easy' : t.diff === 'med' ? 'med' : 'hard'}">${t.diff.toUpperCase()}</div>
+  `;
+  card.onclick = () => openModal(t);
+  grid.appendChild(card);
+});
+
+function openModal(t) {
+  document.getElementById('mNum').textContent = 'TASK ' + t.num + ' · ' + t.diff.toUpperCase();
+  document.getElementById('mTitle').textContent = t.icon + ' ' + t.title;
+  document.getElementById('mRoom').textContent = t.room + ' — ' + t.loc;
+  document.getElementById('mBody').textContent = t.detail;
+  document.getElementById('mBtn').href = t.url;
+  document.getElementById('modalBg').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('modalBg').classList.remove('open');
+}
+document.getElementById('modalBg').onclick = function(e){if(e.target===this)closeModal();}
+</script>
