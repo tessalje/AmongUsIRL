@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Task 04 — Empty Chute</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+.silence{background:#2a0a0a;border:1px solid #4a1a1a;border-radius:6px;padding:.5rem .8rem;font-size:.65rem;color:var(--red);text-align:center;margin-bottom:1rem;letter-spacing:1px;}
+.q-card{background:#060e10;border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;}
+.q-text{font-size:.76rem;margin-bottom:.8rem;line-height:1.6;}
+.opts{display:flex;flex-direction:column;gap:.4rem;}
+.opt{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.45rem .7rem;font-size:.7rem;cursor:pointer;transition:all .2s;text-align:left;}
+.opt:hover{border-color:var(--text);}
+.opt.correct{background:#0a2a1a;border-color:var(--green);color:var(--green);}
+.opt.wrong{background:#2a0a0a;border-color:var(--red);color:var(--red);}
+.hint{font-size:.62rem;color:var(--dim);margin-top:.5rem;}
+.crates{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;min-height:50px;}
+.crate{padding:.4rem .7rem;border-radius:6px;font-size:.72rem;font-weight:700;letter-spacing:1px;cursor:pointer;border:2px solid transparent;transition:all .2s;user-select:none;}
+.crate:hover{transform:scale(1.05);}
+.crate.sel{border-color:#fff;transform:scale(1.07);}
+.bins{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+.bin{background:#060e10;border:2px dashed #2a4a3a;border-radius:8px;padding:.7rem;text-align:center;cursor:pointer;min-height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3rem;transition:all .2s;}
+.bin:hover{border-color:var(--text);}
+.bin.ok{border-color:var(--green);background:#0a2a1a;animation:fls .3s;}
+.bin.bad{border-color:var(--red);background:#2a0a0a;animation:shk .3s;}
+@keyframes fls{50%{opacity:.5}}
+@keyframes shk{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}0%,100%{transform:none}}
+.bin-icon{font-size:1.1rem;}
+.bin-name{font-size:.62rem;letter-spacing:2px;}
+.mistakes{font-size:.65rem;color:var(--red);margin-top:.3rem;min-height:1rem;}
+</style>
+</head>
+<body>
+<h1>🗑 Empty Chute</h1>
+<div class="room-tag">Storage · Chute 4 · Task 04</div>
+<div class="panel">
+  <div class="instructions">First, answer the astronomy question to reveal the debris types. Then sort the crates silently into the correct bins. No talking!</div>
+  <div class="silence">⚠ SILENCE REQUIRED — DO NOT SPEAK</div>
+  <div id="quizArea">
+    <div class="q-card">
+      <div class="q-text" id="qText"></div>
+      <div class="opts" id="opts"></div>
+      <div class="hint" id="hint"></div>
+    </div>
+  </div>
+  <div id="sortArea" style="display:none">
+    <div class="section-label" style="margin-bottom:.6rem">Crates at Chute 4</div>
+    <div class="crates" id="cratesArea"></div>
+    <div class="section-label" style="margin-bottom:.6rem">Recycling Bins</div>
+    <div class="bins" id="binsGrid"></div>
+    <div class="timer-bar"><div class="timer-fill" id="tf" style="width:100%"></div></div>
+    <div class="status" id="status">Select a crate</div>
+    <div class="mistakes" id="mistakes"></div>
+  </div>
+  <div class="win-box" id="winBox"><h2>✓ CHUTE CLEARED</h2><p>All debris sorted. Task complete.</p><button class="btn-primary" onclick="init()">Play Again</button></div>
+  <div class="lose-box" id="loseBox"><h2>✗ FAILED</h2><p>Too many errors or time ran out.</p><button class="btn-primary" onclick="init()">Retry</button></div>
+</div>
+<a class="back-link" href="../index.html">← Back to Task Hub</a>
+<script src="../js/questions.js"></script>
+<script>
+const TYPES=[
+  {name:'STARDUST',icon:'✨',color:'#f1c40f',bg:'#2a2000'},
+  {name:'SPACE ROCK',icon:'🪨',color:'#95a5a6',bg:'#1a2020'},
+  {name:'BIO WASTE',icon:'🟢',color:'#2ecc71',bg:'#0a2010'},
+  {name:'DARK MATTER',icon:'🟣',color:'#9b59b6',bg:'#1a0a2a'},
+];
+let sel=null,sorted=0,mistakes=0,timeLeft=90,timerInt,crates=[],binCounts={};
+function shuffle(a){return a.sort(()=>Math.random()-.5);}
+function init(){
+  sel=null;sorted=0;mistakes=0;timeLeft=90;binCounts={};clearInterval(timerInt);
+  document.getElementById('winBox').style.display='none';
+  document.getElementById('loseBox').style.display='none';
+  document.getElementById('quizArea').style.display='block';
+  document.getElementById('sortArea').style.display='none';
+  document.getElementById('tf').style.width='100%';
+  const q=getQuestions(1)[0];
+  document.getElementById('qText').textContent='Before you sort, answer this: '+q.q;
+  document.getElementById('hint').textContent='';
+  const opts=generateOpts(q);
+  const optsEl=document.getElementById('opts');
+  optsEl.innerHTML='';
+  opts.forEach(o=>{
+    const btn=document.createElement('button');btn.className='opt';btn.textContent=o;
+    btn.onclick=()=>{
+      const ok=o.toLowerCase()===q.a.toLowerCase();
+      btn.classList.add(ok?'correct':'wrong');
+      if(!ok){document.getElementById('hint').textContent='Hint: '+q.hint;}
+      else setTimeout(()=>{document.getElementById('quizArea').style.display='none';startSort();},600);
+    };
+    optsEl.appendChild(btn);
+  });
+}
+function generateOpts(q){
+  const pool=ASTRO_QUESTIONS.filter(x=>x.a!==q.a).map(x=>x.a);
+  return shuffle([q.a,...shuffle(pool).slice(0,3)]).map(s=>s.charAt(0).toUpperCase()+s.slice(1));
+}
+function startSort(){
+  document.getElementById('sortArea').style.display='block';
+  crates=[];
+  TYPES.forEach(t=>{crates.push({...t,id:Math.random()});crates.push({...t,id:Math.random()});});
+  shuffle(crates);
+  buildCrates();buildBins();
+  timerInt=setInterval(()=>{timeLeft--;document.getElementById('tf').style.width=(timeLeft/90*100)+'%';if(timeLeft<=0){clearInterval(timerInt);document.getElementById('loseBox').style.display='block';}},1000);
+}
+function buildCrates(){
+  const area=document.getElementById('cratesArea');area.innerHTML='';
+  crates.forEach((c)=>{
+    const el=document.createElement('div');el.className='crate';el.dataset.id=c.id;
+    el.style.background=c.bg;el.style.color=c.color;el.style.borderColor=c.color+'44';
+    el.innerHTML=c.icon+' '+c.name;el.onclick=()=>selectCrate(c,el);
+    area.appendChild(el);
+  });
+}
+function buildBins(){
+  const grid=document.getElementById('binsGrid');grid.innerHTML='';
+  TYPES.forEach(t=>{
+    binCounts[t.name]=0;
+    const b=document.createElement('div');b.className='bin';b.dataset.type=t.name;
+    b.style.borderColor=t.color+'44';
+    b.innerHTML=`<div class="bin-icon">${t.icon}</div><div class="bin-name" style="color:${t.color}">${t.name}</div><div id="bc-${t.name.replace(' ','-')}" style="font-size:.58rem;color:var(--dim)">0/2</div>`;
+    b.onclick=()=>dropBin(t.name,b);
+    grid.appendChild(b);
+  });
+}
+function selectCrate(c,el){
+  document.querySelectorAll('.crate').forEach(x=>x.classList.remove('sel'));
+  sel=c;el.classList.add('sel');
+  document.getElementById('status').textContent='Drop into: '+c.name;
+}
+function dropBin(type,binEl){
+  if(!sel){document.getElementById('status').textContent='Select a crate first!';return;}
+  if(sel.name===type){
+    binCounts[type]++;
+    const key=type.replace(' ','-');
+    document.getElementById('bc-'+key).textContent=binCounts[type]+'/2';
+    binEl.classList.add('ok');setTimeout(()=>binEl.classList.remove('ok'),400);
+    const cr=document.querySelector(`.crate[data-id="${sel.id}"]`);if(cr)cr.remove();
+    sorted++;sel=null;
+    document.getElementById('status').textContent=sorted+'/8 sorted';
+    if(sorted>=8){clearInterval(timerInt);setTimeout(()=>document.getElementById('winBox').style.display='block',300);}
+  } else {
+    mistakes++;binEl.classList.add('bad');setTimeout(()=>binEl.classList.remove('bad'),400);
+    document.getElementById('mistakes').textContent='❌ Mistakes: '+mistakes+'/3';
+    if(mistakes>=3){clearInterval(timerInt);document.getElementById('loseBox').style.display='block';}
+  }
+}
+init();
+</script>
+</body>
+</html>

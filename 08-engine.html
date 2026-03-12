@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Task 08 — Fix Engine</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+.components{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.7rem;margin-bottom:1.2rem;}
+.comp{background:#060e10;border:2px solid #1a3a2a;border-radius:8px;padding:.7rem .5rem;text-align:center;cursor:pointer;transition:all .2s;}
+.comp.locked{opacity:.5;cursor:not-allowed;}
+.comp.unlocked{border-color:#f39c12;}
+.comp.aligned{border-color:var(--green);background:#0a2a1a;cursor:default;}
+.comp.drifting{border-color:var(--red);}
+.comp-icon{font-size:1.3rem;margin-bottom:.2rem;}
+.comp-name{font-size:.6rem;color:var(--dim);letter-spacing:1px;}
+.comp-status{font-size:.58rem;margin-top:.2rem;}
+.comp.aligned .comp-status{color:var(--green);}
+.comp.unlocked .comp-status,.comp.drifting .comp-status{color:#f39c12;}
+.comp.locked .comp-status{color:var(--dim);}
+.align-bar-wrap{height:10px;background:#1a2a1a;border-radius:5px;margin:.4rem 0 .6rem;overflow:hidden;}
+.align-bar{height:100%;background:#f39c12;border-radius:5px;transition:width .1s;}
+.align-bar.green{background:var(--green);}
+.quiz-card{background:#060e10;border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;display:none;}
+.q-text{font-size:.75rem;margin-bottom:.8rem;line-height:1.6;}
+.opts{display:flex;flex-direction:column;gap:.4rem;}
+.opt{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.45rem .7rem;font-size:.7rem;cursor:pointer;text-align:left;transition:all .2s;}
+.opt:hover{border-color:var(--text);}
+.opt.correct{background:#0a2a1a;border-color:var(--green);color:var(--green);}
+.opt.wrong{background:#2a0a0a;border-color:var(--red);color:var(--red);}
+.hint{font-size:.62rem;color:var(--dim);margin-top:.5rem;}
+.align-btn{width:100%;padding:.7rem;background:#111d28;border:1px solid #2a4a3a;border-radius:8px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:.8rem;cursor:pointer;display:none;margin-bottom:.5rem;}
+.align-btn:hover{background:#1a3a1a;border-color:var(--green);}
+</style>
+</head>
+<body>
+<h1>🔧 Fix Engine</h1>
+<div class="room-tag">Engine Room · Port Side · Task 08</div>
+<div class="panel">
+  <div class="instructions">Answer an astronomy question to unlock each component, then press ALIGN to fix it before it drifts. Fix all 6!</div>
+  <div class="components" id="components"></div>
+  <div class="quiz-card" id="quizCard">
+    <div class="q-text" id="qText"></div>
+    <div class="opts" id="opts"></div>
+    <div class="hint" id="hint"></div>
+  </div>
+  <div id="alignArea" style="display:none">
+    <div class="section-label">ALIGNMENT WINDOW</div>
+    <div class="align-bar-wrap"><div class="align-bar" id="alignBar" style="width:0%"></div></div>
+    <button class="align-btn" id="alignBtn" onclick="doAlign()">⚙ ALIGN NOW</button>
+  </div>
+  <div class="timer-bar"><div class="timer-fill" id="tf" style="width:100%"></div></div>
+  <div class="status" id="status">Click a component to begin</div>
+  <div class="win-box" id="winBox"><h2>✓ ENGINE FIXED</h2><p>All 6 components aligned. Engine running.</p><button class="btn-primary" onclick="init()">Play Again</button></div>
+  <div class="lose-box" id="loseBox"><h2>✗ ENGINE FAILURE</h2><p>Components drifted out of alignment.</p><button class="btn-primary" onclick="init()">Retry</button></div>
+</div>
+<a class="back-link" href="../index.html">← Back to Task Hub</a>
+<script src="../js/questions.js"></script>
+<script>
+const COMP_NAMES=[{n:'Piston A',i:'🔩'},{n:'Coil B',i:'🌀'},{n:'Rotor C',i:'⚙'},{n:'Valve D',i:'🔧'},{n:'Cam E',i:'🔄'},{n:'Shaft F',i:'🔨'}];
+let compStates=[],questions=[],aligned=0,timeLeft=180,timerInt,activeComp=-1,alignInt,alignProg=0;
+function shuffle(a){return a.sort(()=>Math.random()-.5);}
+function init(){
+  aligned=0;activeComp=-1;alignProg=0;timeLeft=180;clearInterval(timerInt);clearInterval(alignInt);
+  questions=getQuestions(6);
+  compStates=COMP_NAMES.map(()=>'locked');
+  document.getElementById('winBox').style.display='none';document.getElementById('loseBox').style.display='none';
+  document.getElementById('quizCard').style.display='none';document.getElementById('alignArea').style.display='none';
+  document.getElementById('alignBtn').style.display='none';
+  document.getElementById('tf').style.width='100%';
+  buildComponents();startTimer();
+}
+function buildComponents(){
+  const el=document.getElementById('components');el.innerHTML='';
+  COMP_NAMES.forEach((c,i)=>{
+    const d=document.createElement('div');d.className='comp '+compStates[i];d.id='comp'+i;
+    d.innerHTML=`<div class="comp-icon">${c.i}</div><div class="comp-name">${c.n}</div><div class="comp-status">${compStates[i]==='locked'?'LOCKED':compStates[i]==='unlocked'?'READY':compStates[i]==='aligned'?'ALIGNED':'DRIFTING'}</div>`;
+    if(compStates[i]!=='aligned')d.onclick=()=>clickComp(i);
+    el.appendChild(d);
+  });
+}
+function clickComp(idx){
+  if(compStates[idx]==='locked'){showQuiz(idx);return;}
+  if(compStates[idx]==='unlocked'||compStates[idx]==='drifting'){startAligning(idx);}
+}
+function showQuiz(idx){
+  const q=questions[idx];
+  document.getElementById('quizCard').style.display='block';
+  document.getElementById('qText').textContent=`🔒 Unlock ${COMP_NAMES[idx].n}:\n${q.q}`;
+  document.getElementById('hint').textContent='';
+  const pool=ASTRO_QUESTIONS.filter(x=>x.a!==q.a).map(x=>x.a);
+  const opts=shuffle([q.a,...shuffle(pool).slice(0,3)]).map(s=>s.charAt(0).toUpperCase()+s.slice(1));
+  const optsEl=document.getElementById('opts');optsEl.innerHTML='';
+  opts.forEach(o=>{
+    const btn=document.createElement('button');btn.className='opt';btn.textContent=o;
+    btn.onclick=()=>{
+      const ok=o.toLowerCase()===q.a.toLowerCase();btn.classList.add(ok?'correct':'wrong');
+      if(!ok){document.getElementById('hint').textContent='Hint: '+q.hint;return;}
+      setTimeout(()=>{document.getElementById('quizCard').style.display='none';compStates[idx]='unlocked';buildComponents();startAligning(idx);},500);
+    };optsEl.appendChild(btn);
+  });
+}
+function startAligning(idx){
+  clearInterval(alignInt);alignProg=0;activeComp=idx;
+  document.getElementById('alignArea').style.display='block';
+  document.getElementById('alignBtn').style.display='block';
+  document.getElementById('alignBar').style.width='0%';
+  document.getElementById('alignBar').classList.remove('green');
+  document.getElementById('status').textContent='Press ALIGN to fix '+COMP_NAMES[idx].n+'!';
+  // Drift animation
+  alignInt=setInterval(()=>{
+    alignProg=Math.min(100,alignProg+.8);
+    document.getElementById('alignBar').style.width=alignProg+'%';
+    if(alignProg>60)document.getElementById('alignBar').classList.remove('green');
+    if(alignProg>=100){clearInterval(alignInt);compStates[idx]='drifting';buildComponents();document.getElementById('status').className='status err';document.getElementById('status').textContent=COMP_NAMES[idx].n+' drifted! Click to retry.';document.getElementById('alignArea').style.display='none';}
+  },80);
+}
+function doAlign(){
+  if(alignProg>70){document.getElementById('status').className='status err';document.getElementById('status').textContent='Too late — component drifted! Click to retry.';return;}
+  clearInterval(alignInt);
+  document.getElementById('alignBar').style.width='100%';
+  document.getElementById('alignBar').classList.add('green');
+  compStates[activeComp]='aligned';aligned++;
+  document.getElementById('alignArea').style.display='none';document.getElementById('alignBtn').style.display='none';
+  document.getElementById('status').className='status ok';
+  document.getElementById('status').textContent=aligned+'/6 components aligned';
+  buildComponents();
+  if(aligned>=6){clearInterval(timerInt);document.getElementById('winBox').style.display='block';}
+  else{setTimeout(()=>{document.getElementById('status').className='status';},1500);}
+}
+function startTimer(){timerInt=setInterval(()=>{timeLeft--;document.getElementById('tf').style.width=(timeLeft/180*100)+'%';if(timeLeft<=0){clearInterval(timerInt);clearInterval(alignInt);document.getElementById('loseBox').style.display='block';}},1000);}
+init();
+</script>
+</body>
+</html>

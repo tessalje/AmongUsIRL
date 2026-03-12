@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Task 07 — Scan Boarding</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+.progress{display:flex;gap:6px;margin-bottom:1rem;}
+.p-dot{width:13px;height:13px;border-radius:50%;background:#1a3a2a;border:1px solid #2a4a3a;transition:all .3s;}
+.p-dot.done{background:var(--green);}
+.p-dot.active{background:var(--yellow);box-shadow:0 0 6px var(--yellow);}
+.q-card{background:#060e10;border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;}
+.q-text{font-size:.75rem;margin-bottom:.8rem;line-height:1.6;}
+.opts{display:flex;flex-direction:column;gap:.4rem;}
+.opt{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.45rem .7rem;font-size:.7rem;cursor:pointer;text-align:left;transition:all .2s;}
+.opt:hover{border-color:var(--text);}
+.opt.correct{background:#0a2a1a;border-color:var(--green);color:var(--green);}
+.opt.wrong{background:#2a0a0a;border-color:var(--red);color:var(--red);}
+.hint{font-size:.62rem;color:var(--dim);margin-top:.5rem;}
+.score-display{text-align:center;font-family:'Orbitron',monospace;font-size:1.8rem;color:var(--yellow);margin:.5rem 0;}
+.manifest{background:#060e10;border:1px solid var(--border);border-radius:8px;padding:.8rem;margin-bottom:1rem;display:none;}
+.manifest-row{display:flex;justify-content:space-between;font-size:.68rem;padding:.25rem 0;border-bottom:1px solid #0a1a0a;}
+.manifest-row:last-child{border:none;}
+.manifest-row.anomaly{color:var(--red);}
+</style>
+</head>
+<body>
+<h1>📡 Scan Boarding</h1>
+<div class="room-tag">Admin · Main Hall · Task 07</div>
+<div class="panel">
+  <div class="instructions">Answer 5 space questions to scan each crewmate. Get 4/5 correct to complete authentication. Watch for anomalies in the manifest!</div>
+  <div class="progress" id="progress"></div>
+  <div id="quizArea">
+    <div class="q-card" id="qCard">
+      <div class="q-text" id="qText"></div>
+      <div class="opts" id="opts"></div>
+      <div class="hint" id="hint"></div>
+    </div>
+  </div>
+  <div class="manifest" id="manifest">
+    <div class="section-label" style="margin-bottom:.5rem">BOARDING MANIFEST</div>
+    <div id="manifestRows"></div>
+  </div>
+  <div class="timer-bar"><div class="timer-fill" id="tf" style="width:100%"></div></div>
+  <div class="status" id="status">Scan crewmate 1 of 5</div>
+  <div class="win-box" id="winBox"><h2>✓ BOARDING COMPLETE</h2><p>All crewmates verified. Manifest logged.</p><button class="btn-primary" onclick="init()">Play Again</button></div>
+  <div class="lose-box" id="loseBox"><h2>✗ AUTHENTICATION FAILED</h2><p>Too many errors. Re-scan required.</p><button class="btn-primary" onclick="init()">Retry</button></div>
+</div>
+<a class="back-link" href="../index.html">← Back to Task Hub</a>
+<script src="../js/questions.js"></script>
+<script>
+const CREW=['Commander Zara','Dr. Lune','Engineer Orb','Pilot Vega','Technician Sol'];
+let step=0,correct=0,questions=[],timeLeft=120,timerInt,results=[];
+function shuffle(a){return a.sort(()=>Math.random()-.5);}
+function init(){
+  step=0;correct=0;results=[];timeLeft=120;clearInterval(timerInt);
+  questions=getQuestions(5);
+  document.getElementById('winBox').style.display='none';document.getElementById('loseBox').style.display='none';
+  document.getElementById('manifest').style.display='none';document.getElementById('quizArea').style.display='block';
+  document.getElementById('tf').style.width='100%';buildProgress();showQ(0);startTimer();
+}
+function buildProgress(){
+  const el=document.getElementById('progress');el.innerHTML='';
+  for(let i=0;i<5;i++){const d=document.createElement('div');d.className='p-dot'+(i<step?' done':i===step?' active':'');el.appendChild(d);}
+}
+function generateOpts(q){const pool=ASTRO_QUESTIONS.filter(x=>x.a!==q.a).map(x=>x.a);return shuffle([q.a,...shuffle(pool).slice(0,3)]).map(s=>s.charAt(0).toUpperCase()+s.slice(1));}
+function showQ(idx){
+  const q=questions[idx],crew=CREW[idx];
+  document.getElementById('qText').textContent=`Scanning: ${crew}\nVerify their badge: ${q.q}`;
+  document.getElementById('hint').textContent='';
+  const opts=generateOpts(q),optsEl=document.getElementById('opts');optsEl.innerHTML='';
+  opts.forEach(o=>{
+    const btn=document.createElement('button');btn.className='opt';btn.textContent=o;
+    btn.onclick=()=>{
+      document.querySelectorAll('.opt').forEach(b=>{b.onclick=null;b.style.cursor='default';});
+      const ok=o.toLowerCase()===q.a.toLowerCase();btn.classList.add(ok?'correct':'wrong');
+      if(!ok)document.getElementById('hint').textContent='Hint: '+q.hint;
+      else correct++;
+      results.push({crew,ok});step++;buildProgress();
+      setTimeout(()=>{
+        if(step>=5){clearInterval(timerInt);showManifest();}
+        else showQ(step);
+      },700);
+    };optsEl.appendChild(btn);
+  });
+}
+function showManifest(){
+  document.getElementById('quizArea').style.display='none';
+  document.getElementById('manifest').style.display='block';
+  const rows=document.getElementById('manifestRows');rows.innerHTML='';
+  results.forEach(r=>{
+    const row=document.createElement('div');row.className='manifest-row'+(r.ok?'':' anomaly');
+    row.innerHTML=`<span>${r.crew}</span><span>${r.ok?'✓ VERIFIED':'⚠ FLAG'}</span>`;
+    rows.appendChild(row);
+  });
+  document.getElementById('status').textContent=`${correct}/5 verified`;
+  setTimeout(()=>{
+    if(correct>=4)document.getElementById('winBox').style.display='block';
+    else document.getElementById('loseBox').style.display='block';
+  },800);
+}
+function startTimer(){timerInt=setInterval(()=>{timeLeft--;document.getElementById('tf').style.width=(timeLeft/120*100)+'%';if(timeLeft<=0){clearInterval(timerInt);document.getElementById('loseBox').style.display='block';}},1000);}
+init();
+</script>
+</body>
+</html>

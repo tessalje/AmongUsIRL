@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Task 03 — Submit Sample</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+.quiz-wrap{margin-bottom:1.2rem;}
+.progress{display:flex;gap:6px;margin-bottom:1rem;}
+.prog-dot{width:12px;height:12px;border-radius:50%;background:#1a3a2a;border:1px solid #2a4a3a;transition:all .3s;}
+.prog-dot.done{background:var(--green);}
+.prog-dot.active{background:var(--yellow);box-shadow:0 0 6px var(--yellow);}
+.q-card{background:#060e10;border:1px solid var(--border);border-radius:8px;padding:1rem;}
+.q-text{font-size:.76rem;color:var(--text);margin-bottom:.8rem;line-height:1.6;}
+.opts{display:flex;flex-direction:column;gap:.4rem;}
+.opt{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.45rem .7rem;font-size:.7rem;cursor:pointer;transition:all .2s;text-align:left;}
+.opt:hover{border-color:var(--text);}
+.opt.correct{background:#0a2a1a;border-color:var(--green);color:var(--green);}
+.opt.wrong{background:#2a0a0a;border-color:var(--red);color:var(--red);}
+.opt:disabled{cursor:default;}
+.hint{font-size:.62rem;color:var(--dim);margin-top:.5rem;}
+.sample-result{background:#060e10;border:1px solid #2a4a3a;border-radius:8px;padding:1rem;text-align:center;margin-bottom:1rem;display:none;}
+.sample-id{font-family:'Orbitron',monospace;font-size:2rem;color:var(--yellow);margin:.3rem 0;}
+.scan-btn{display:none;}
+</style>
+</head>
+<body>
+<h1>🧫 Submit Sample</h1>
+<div class="room-tag">MedBay · Room 3 · Task 03</div>
+<div class="panel">
+  <div class="instructions">Answer 4 astronomy questions to reveal your sample ID, then confirm it in the scanner.</div>
+  <div class="progress" id="progress"></div>
+  <div class="quiz-wrap" id="quizWrap"></div>
+  <div class="sample-result" id="sampleResult">
+    <div class="section-label">Your assigned sample</div>
+    <div class="sample-id" id="sampleId">—</div>
+    <div style="font-size:.66rem;color:var(--muted)">Place this vial in the scanner below</div>
+  </div>
+  <button class="btn-primary scan-btn" id="scanBtn" onclick="scan()">▶ CONFIRM SCAN</button>
+  <div class="status" id="status">Answer question 1 of 4</div>
+  <div class="win-box" id="winBox">
+    <h2>✓ SAMPLE ANALYSED</h2>
+    <p>Correct sample confirmed. Results logged to MedBay.</p>
+    <button class="btn-primary" onclick="init()">Play Again</button>
+  </div>
+</div>
+<a class="back-link" href="../index.html">← Back to Task Hub</a>
+<script src="../js/questions.js"></script>
+<script>
+const SAMPLES=['A','B','C','D','E'];
+let questions=[],step=0,correct=0,sampleId='';
+function shuffle(a){return a.sort(()=>Math.random()-.5);}
+function init(){
+  step=0;correct=0;
+  questions=getQuestions(4);
+  sampleId=SAMPLES[Math.floor(Math.random()*SAMPLES.length)];
+  document.getElementById('winBox').style.display='none';
+  document.getElementById('sampleResult').style.display='none';
+  document.getElementById('scanBtn').style.display='none';
+  buildProgress();showQ(0);
+}
+function buildProgress(){
+  const el=document.getElementById('progress');
+  el.innerHTML='';
+  for(let i=0;i<4;i++){
+    const d=document.createElement('div');
+    d.className='prog-dot'+(i<step?' done':i===step?' active':'');
+    el.appendChild(d);
+  }
+}
+function generateOpts(q){
+  const correct=q.a;
+  const pool=ASTRO_QUESTIONS.filter(x=>x.a!==correct).map(x=>x.a);
+  return shuffle([correct,...shuffle(pool).slice(0,3)]).map(s=>s.charAt(0).toUpperCase()+s.slice(1));
+}
+function showQ(idx){
+  const q=questions[idx];
+  const wrap=document.getElementById('quizWrap');
+  wrap.innerHTML=`<div class="q-card"><div class="q-text">Q${idx+1}: ${q.q}</div><div class="opts" id="opts"></div><div class="hint" id="hint"></div></div>`;
+  const opts=generateOpts(q);
+  const optsEl=document.getElementById('opts');
+  opts.forEach(o=>{
+    const btn=document.createElement('button');
+    btn.className='opt';btn.textContent=o;
+    btn.onclick=()=>answer(o,q,btn);
+    optsEl.appendChild(btn);
+  });
+}
+function answer(chosen,q,btn){
+  document.querySelectorAll('.opt').forEach(b=>{b.disabled=true;b.onclick=null;});
+  const ok=chosen.toLowerCase()===q.a.toLowerCase();
+  btn.classList.add(ok?'correct':'wrong');
+  if(!ok){
+    document.getElementById('hint').textContent='Hint: '+q.hint;
+    document.querySelectorAll('.opt').forEach(b=>{if(b.textContent.toLowerCase()===q.a.toLowerCase())b.classList.add('correct');});
+  } else correct++;
+  step++;buildProgress();
+  setTimeout(()=>{
+    if(step>=4){
+      document.getElementById('quizWrap').innerHTML='';
+      document.getElementById('sampleId').textContent='Vial '+sampleId;
+      document.getElementById('sampleResult').style.display='block';
+      document.getElementById('scanBtn').style.display='block';
+      document.getElementById('status').textContent=`${correct}/4 correct — locate Vial ${sampleId}`;
+    } else showQ(step);
+  },800);
+}
+function scan(){
+  document.getElementById('winBox').style.display='block';
+  document.getElementById('sampleResult').style.display='none';
+  document.getElementById('scanBtn').style.display='none';
+}
+init();
+</script>
+</body>
+</html>

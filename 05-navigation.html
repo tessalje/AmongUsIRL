@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Task 05 — Chart Course</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+.wp-list{background:#060e10;border:1px solid var(--border);border-radius:8px;padding:.8rem;margin-bottom:1rem;}
+.wp-row{display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.72rem;}
+.wp-row .num{color:var(--dim);width:16px;}
+.wp-row .coord{color:var(--yellow);letter-spacing:1px;flex:1;}
+.wp-row.done .coord{color:var(--green);}
+.wp-row.done .num{color:var(--green);}
+.quiz-card{background:#060e10;border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;display:none;}
+.q-text{font-size:.75rem;margin-bottom:.8rem;line-height:1.6;}
+.opts{display:flex;flex-direction:column;gap:.4rem;}
+.opt{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.45rem .7rem;font-size:.7rem;cursor:pointer;text-align:left;transition:all .2s;}
+.opt:hover{border-color:var(--text);}
+.opt.correct{background:#0a2a1a;border-color:var(--green);color:var(--green);}
+.opt.wrong{background:#2a0a0a;border-color:var(--red);color:var(--red);}
+.hint{font-size:.62rem;color:var(--dim);margin-top:.5rem;}
+.entry-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.8rem;display:none;}
+.entry-row input{width:58px;}
+.entry-row .sep{color:var(--dim);}
+canvas{width:100%;height:auto;display:block;border-radius:6px;border:1px solid var(--border);margin-bottom:1rem;}
+</style>
+</head>
+<body>
+<h1>🗺 Chart Course</h1>
+<div class="room-tag">Navigation · Top Floor · Task 05</div>
+<div class="panel">
+  <div class="instructions">Answer an astronomy question to reveal each waypoint coordinate. Then type it in to plot it on the star map. Complete all 4 waypoints in 2 minutes!</div>
+  <canvas id="starCanvas" width="460" height="200"></canvas>
+  <div class="wp-list" id="wpList"></div>
+  <div class="quiz-card" id="quizCard">
+    <div class="q-text" id="qText"></div>
+    <div class="opts" id="opts"></div>
+    <div class="hint" id="hint"></div>
+  </div>
+  <div class="entry-row" id="entryRow">
+    <span style="font-size:.65rem;color:var(--dim);letter-spacing:1px">X:</span>
+    <input type="number" id="xIn" min="0" max="99" placeholder="00">
+    <span class="sep">:</span>
+    <span style="font-size:.65rem;color:var(--dim);letter-spacing:1px">Y:</span>
+    <input type="number" id="yIn" min="0" max="99" placeholder="00">
+    <button class="btn" onclick="submitCoord()">ENTER</button>
+  </div>
+  <div class="timer-bar"><div class="timer-fill" id="tf" style="width:100%"></div></div>
+  <div class="status" id="status">Answer question 1 to unlock waypoint 1</div>
+  <div class="win-box" id="winBox"><h2>✓ COURSE PLOTTED</h2><p>All 4 waypoints confirmed. Navigation locked.</p><button class="btn-primary" onclick="init()">Play Again</button></div>
+  <div class="lose-box" id="loseBox"><h2>✗ TIME EXPIRED</h2><p>Course plotting failed.</p><button class="btn-primary" onclick="init()">Retry</button></div>
+</div>
+<a class="back-link" href="../index.html">← Back to Task Hub</a>
+<script src="../js/questions.js"></script>
+<script>
+let waypoints=[],step=0,plotted=[],timeLeft=120,timerInt,questions=[],stars=[];
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function shuffle(a){return a.sort(()=>Math.random()-.5);}
+function init(){
+  step=0;plotted=[];timeLeft=120;clearInterval(timerInt);
+  questions=getQuestions(4);
+  const used=new Set();waypoints=[];
+  while(waypoints.length<4){const x=rnd(5,90),y=rnd(5,90),k=x+':'+y;if(!used.has(k)){used.add(k);waypoints.push({x,y});}}
+  stars=Array.from({length:60},()=>({x:Math.random(),y:Math.random(),r:Math.random()*1.5+.3,a:Math.random()*.7+.2}));
+  document.getElementById('winBox').style.display='none';document.getElementById('loseBox').style.display='none';
+  document.getElementById('quizCard').style.display='none';document.getElementById('entryRow').style.display='none';
+  document.getElementById('tf').style.width='100%';
+  buildWpList();drawMap();showQuiz(0);startTimer();
+}
+function buildWpList(){
+  const el=document.getElementById('wpList');el.innerHTML='';
+  waypoints.forEach((w,i)=>{
+    const row=document.createElement('div');row.className='wp-row'+(i<step?' done':'');row.id='wp'+i;
+    row.innerHTML=`<span class="num">${i+1}.</span><span class="coord">${i<step?w.x+':'+w.y:'??:??'}</span>${i<step?'<span style="color:var(--green)">✓</span>':''}`;
+    el.appendChild(row);
+  });
+}
+function drawMap(){
+  const c=document.getElementById('starCanvas'),ctx=c.getContext('2d'),W=460,H=200;
+  ctx.fillStyle='#030810';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='#0a1820';ctx.lineWidth=.5;
+  for(let v=0;v<=100;v+=10){ctx.beginPath();ctx.moveTo(v/100*W,0);ctx.lineTo(v/100*W,H);ctx.stroke();ctx.beginPath();ctx.moveTo(0,v/100*H);ctx.lineTo(W,v/100*H);ctx.stroke();}
+  stars.forEach(s=>{ctx.fillStyle=`rgba(200,240,208,${s.a})`;ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,Math.PI*2);ctx.fill();});
+  plotted.forEach((p,i)=>{
+    const px=p.x/100*W,py=p.y/100*H;
+    ctx.strokeStyle='#2ecc71';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(px,py,7,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='#2ecc71';ctx.font='9px Share Tech Mono,monospace';ctx.fillText('WP'+(i+1),px+9,py-4);
+    if(i>0){const prev=plotted[i-1];ctx.strokeStyle='#2ecc7155';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(prev.x/100*W,prev.y/100*H);ctx.lineTo(px,py);ctx.stroke();ctx.setLineDash([]);}
+  });
+  if(step<waypoints.length&&step===plotted.length){const tw=waypoints[step],px=tw.x/100*W,py=tw.y/100*H;ctx.strokeStyle='#e8ff6b33';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(px-10,py);ctx.lineTo(px+10,py);ctx.stroke();ctx.beginPath();ctx.moveTo(px,py-10);ctx.lineTo(px,py+10);ctx.stroke();}
+}
+function showQuiz(idx){
+  const q=questions[idx];const card=document.getElementById('quizCard');card.style.display='block';
+  document.getElementById('qText').textContent=`🔒 Unlock waypoint ${idx+1}:\n${q.q}`;
+  document.getElementById('hint').textContent='';
+  const pool=ASTRO_QUESTIONS.filter(x=>x.a!==q.a).map(x=>x.a);
+  const opts=shuffle([q.a,...shuffle(pool).slice(0,3)]).map(s=>s.charAt(0).toUpperCase()+s.slice(1));
+  const optsEl=document.getElementById('opts');optsEl.innerHTML='';
+  opts.forEach(o=>{
+    const btn=document.createElement('button');btn.className='opt';btn.textContent=o;
+    btn.onclick=()=>{
+      const ok=o.toLowerCase()===q.a.toLowerCase();btn.classList.add(ok?'correct':'wrong');
+      if(!ok){document.getElementById('hint').textContent='Hint: '+q.hint;return;}
+      setTimeout(()=>{card.style.display='none';document.getElementById('entryRow').style.display='flex';document.getElementById('status').textContent=`Waypoint ${step+1} revealed! Enter coords: ${waypoints[step].x} : ${waypoints[step].y}`;},500);
+    };optsEl.appendChild(btn);
+  });
+}
+function submitCoord(){
+  const x=parseInt(document.getElementById('xIn').value),y=parseInt(document.getElementById('yIn').value);
+  const t=waypoints[step];
+  if(isNaN(x)||isNaN(y)){document.getElementById('status').className='status err';document.getElementById('status').textContent='Enter both X and Y';return;}
+  if(x===t.x&&y===t.y){
+    plotted.push({x,y});step++;
+    document.getElementById('xIn').value='';document.getElementById('yIn').value='';
+    document.getElementById('entryRow').style.display='none';
+    buildWpList();drawMap();
+    if(step>=4){clearInterval(timerInt);document.getElementById('winBox').style.display='block';}
+    else showQuiz(step);
+  } else {
+    document.getElementById('status').className='status err';document.getElementById('status').textContent='Wrong coordinates! Check the revealed values.';
+    setTimeout(()=>{document.getElementById('status').className='status';},1500);
+  }
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter')submitCoord();});
+function startTimer(){timerInt=setInterval(()=>{timeLeft--;document.getElementById('tf').style.width=(timeLeft/120*100)+'%';if(timeLeft<=0){clearInterval(timerInt);document.getElementById('loseBox').style.display='block';}},1000);}
+init();
+</script>
+</body>
+</html>

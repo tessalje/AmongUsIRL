@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Task 02 — Calibrate Shields</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+.seq-display{display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.2rem;}
+.seq-chip{width:42px;height:42px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',monospace;font-size:.9rem;font-weight:700;}
+.seq-chip.done{background:#0a2a1a;border:1px solid var(--green);color:var(--green);}
+.seq-chip.active{background:#1a2a00;border:2px solid var(--yellow);color:var(--yellow);animation:blk .6s infinite;}
+.seq-chip.lock{background:#111a1f;border:1px solid #1a3a2a;color:var(--dim);}
+@keyframes blk{50%{opacity:.3}}
+.dial-wrap{text-align:center;margin-bottom:1.2rem;}
+.dial-label{font-size:.6rem;color:var(--dim);letter-spacing:2px;margin-bottom:.4rem;}
+.dial-val{font-family:'Orbitron',monospace;font-size:2rem;color:var(--yellow);margin:.3rem 0;}
+input[type=range]{width:100%;margin:.4rem 0;}
+.hold-btn{width:100%;padding:.9rem;background:#111d28;border:2px solid #2a4a3a;border-radius:8px;color:var(--text);font-family:'Share Tech Mono',monospace;font-size:.85rem;cursor:pointer;transition:all .2s;user-select:none;-webkit-user-select:none;}
+.hold-btn.holding{background:#1a3a1a;border-color:var(--green);color:var(--green);}
+.hold-bar{height:6px;background:#1a2a1a;border-radius:3px;margin-top:.6rem;overflow:hidden;}
+.hold-fill{height:100%;background:var(--green);border-radius:3px;transition:width .05s linear;}
+.quiz-box{background:#060e10;border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;display:none;}
+.quiz-q{font-size:.75rem;color:var(--text);margin-bottom:.8rem;line-height:1.6;}
+.quiz-opts{display:flex;flex-direction:column;gap:.4rem;}
+.quiz-opt{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.45rem .7rem;font-size:.7rem;cursor:pointer;transition:all .2s;text-align:left;}
+.quiz-opt:hover{border-color:var(--text);}
+.quiz-opt.correct{background:#0a2a1a;border-color:var(--green);color:var(--green);}
+.quiz-opt.wrong{background:#2a0a0a;border-color:var(--red);color:var(--red);}
+.hint{font-size:.62rem;color:var(--dim);margin-top:.5rem;}
+</style>
+</head>
+<body>
+<h1>🛡 Calibrate Shields</h1>
+<div class="room-tag">Shields · Generator A · Task 02</div>
+<div class="panel">
+  <div class="instructions">Answer an astronomy question to unlock each target frequency. Then set the dial to the target and hold the button for 3 seconds to lock it in.</div>
+  <div class="seq-display" id="seqDisplay"></div>
+  <div class="quiz-box" id="quizBox">
+    <div class="quiz-q" id="quizQ"></div>
+    <div class="quiz-opts" id="quizOpts"></div>
+    <div class="hint" id="quizHint"></div>
+  </div>
+  <div class="dial-wrap" id="dialWrap" style="display:none">
+    <div class="dial-label">CURRENT FREQUENCY</div>
+    <div class="dial-val" id="dialVal">0</div>
+    <input type="range" id="dialRange" min="0" max="99" value="0">
+    <div class="dial-label" style="margin-top:.3rem">TARGET: <span id="targetVal" style="color:var(--yellow)">—</span></div>
+  </div>
+  <div id="holdArea" style="display:none">
+    <button class="hold-btn" id="holdBtn">HOLD TO LOCK (3s)</button>
+    <div class="hold-bar"><div class="hold-fill" id="holdFill"></div></div>
+  </div>
+  <div class="timer-bar"><div class="timer-fill" id="tf" style="width:100%"></div></div>
+  <div class="status" id="status">Answer the question to unlock frequency 1</div>
+  <div class="win-box" id="winBox">
+    <h2>✓ SHIELDS CALIBRATED</h2>
+    <p>All 4 frequencies locked. Shields online.</p>
+    <button class="btn-primary" onclick="init()">Play Again</button>
+  </div>
+  <div class="lose-box" id="loseBox">
+    <h2>✗ TIME EXPIRED</h2>
+    <p>Shield calibration failed. Retry.</p>
+    <button class="btn-primary" onclick="init()">Retry</button>
+  </div>
+</div>
+<a class="back-link" href="../index.html">← Back to Task Hub</a>
+<script src="../js/questions.js"></script>
+<script>
+let sequence=[],step=0,timeLeft=150,timerInt,questions=[],holdInt,holdProg=0;
+
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+function shuffle(a){return a.sort(()=>Math.random()-.5);}
+
+function init(){
+  step=0;holdProg=0;timeLeft=150;
+  clearInterval(timerInt);clearInterval(holdInt);
+  questions=getQuestions(4);
+  sequence=[rnd(5,25),rnd(30,50),rnd(55,75),rnd(80,95)];
+  document.getElementById('winBox').style.display='none';
+  document.getElementById('loseBox').style.display='none';
+  document.getElementById('quizBox').style.display='block';
+  document.getElementById('dialWrap').style.display='none';
+  document.getElementById('holdArea').style.display='none';
+  document.getElementById('tf').style.width='100%';
+  document.getElementById('holdFill').style.width='0%';
+  buildSeq();
+  showQuiz(0);
+  startTimer();
+}
+
+function buildSeq(){
+  const el=document.getElementById('seqDisplay');
+  el.innerHTML='';
+  sequence.forEach((n,i)=>{
+    const chip=document.createElement('div');
+    chip.className='seq-chip '+(i<step?'done':i===step?'active':'lock');
+    chip.textContent=i<step?'✓':(i===step?n:'?');
+    el.appendChild(chip);
+  });
+}
+
+function showQuiz(idx){
+  const q=questions[idx];
+  const qBox=document.getElementById('quizBox');
+  qBox.style.display='block';
+  document.getElementById('quizQ').textContent=`🔒 Frequency ${idx+1} locked! Answer to unlock:\n${q.q}`;
+  document.getElementById('quizHint').textContent='';
+  const opts=generateOpts(q);
+  const optsEl=document.getElementById('quizOpts');
+  optsEl.innerHTML='';
+  opts.forEach(o=>{
+    const btn=document.createElement('button');
+    btn.className='quiz-opt';
+    btn.textContent=o;
+    btn.onclick=()=>{
+      const correct=o.toLowerCase()===q.a.toLowerCase();
+      btn.classList.add(correct?'correct':'wrong');
+      if(!correct){document.getElementById('quizHint').textContent='Hint: '+q.hint;return;}
+      setTimeout(()=>{
+        qBox.style.display='none';
+        document.getElementById('dialWrap').style.display='block';
+        document.getElementById('holdArea').style.display='block';
+        document.getElementById('targetVal').textContent=sequence[step];
+        document.getElementById('status').textContent=`Set dial to ${sequence[step]}, then hold to lock`;
+      },600);
+    };
+    optsEl.appendChild(btn);
+  });
+}
+
+function generateOpts(q){
+  const correct=q.a;
+  const pool=ASTRO_QUESTIONS.filter(x=>x.a!==correct).map(x=>x.a);
+  const dist=shuffle(pool).slice(0,3);
+  return shuffle([correct,...dist]).map(s=>s.charAt(0).toUpperCase()+s.slice(1));
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('dialRange').addEventListener('input',function(){
+    document.getElementById('dialVal').textContent=this.value;
+    holdProg=0;document.getElementById('holdFill').style.width='0%';
+  });
+  const hb=document.getElementById('holdBtn');
+  hb.addEventListener('mousedown',startHold);hb.addEventListener('touchstart',startHold,{passive:true});
+  hb.addEventListener('mouseup',endHold);hb.addEventListener('touchend',endHold);
+});
+
+function startHold(){
+  const target=sequence[step];
+  const cur=parseInt(document.getElementById('dialRange').value);
+  if(Math.abs(cur-target)>2){
+    document.getElementById('status').className='status err';
+    document.getElementById('status').textContent='Dial not at target frequency!';
+    setTimeout(()=>{document.getElementById('status').className='status';},1200);
+    return;
+  }
+  document.getElementById('holdBtn').classList.add('holding');
+  holdInt=setInterval(()=>{
+    holdProg=Math.min(100,holdProg+100/60);
+    document.getElementById('holdFill').style.width=holdProg+'%';
+    if(holdProg>=100){clearInterval(holdInt);lockFreq();}
+  },50);
+}
+
+function endHold(){
+  clearInterval(holdInt);
+  document.getElementById('holdBtn').classList.remove('holding');
+  if(holdProg<100){holdProg=0;document.getElementById('holdFill').style.width='0%';}
+}
+
+function lockFreq(){
+  holdProg=0;document.getElementById('holdFill').style.width='0%';
+  step++;buildSeq();
+  document.getElementById('dialWrap').style.display='none';
+  document.getElementById('holdArea').style.display='none';
+  if(step>=4){clearInterval(timerInt);document.getElementById('winBox').style.display='block';}
+  else{showQuiz(step);document.getElementById('status').textContent='Frequency '+(step)+' locked! Answer next question.';}
+}
+
+function startTimer(){
+  timerInt=setInterval(()=>{
+    timeLeft--;
+    document.getElementById('tf').style.width=(timeLeft/150*100)+'%';
+    if(timeLeft<=0){clearInterval(timerInt);document.getElementById('loseBox').style.display='block';}
+  },1000);
+}
+init();
+</script>
+</body>
+</html>

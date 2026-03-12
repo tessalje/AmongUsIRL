@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Task 09 — Clean O2 Filter</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+.intro-q{background:#060e10;border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;}
+.q-text{font-size:.75rem;margin-bottom:.8rem;line-height:1.6;}
+.opts{display:flex;flex-direction:column;gap:.4rem;}
+.opt{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.45rem .7rem;font-size:.7rem;cursor:pointer;text-align:left;transition:all .2s;}
+.opt:hover{border-color:var(--text);}
+.opt.correct{background:#0a2a1a;border-color:var(--green);color:var(--green);}
+.opt.wrong{background:#2a0a0a;border-color:var(--red);color:var(--red);}
+.hint{font-size:.62rem;color:var(--dim);margin-top:.5rem;}
+.grid-wrap{display:none;margin-bottom:1rem;}
+.filter-grid{display:grid;gap:4px;margin-bottom:.8rem;}
+.tile{width:100%;aspect-ratio:1;border-radius:5px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.7rem;transition:all .15s;border:1px solid transparent;}
+.tile.clean{background:#0a1a20;border-color:#1a3a2a;}
+.tile.clogged{background:#2a1a00;border-color:#f39c12;color:#f39c12;}
+.tile.cleared{background:#0a2a1a;border-color:var(--green);color:var(--green);cursor:default;}
+.tile.mistake{background:#2a0a0a;border-color:var(--red);animation:shk .3s;}
+@keyframes shk{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}0%,100%{transform:none}}
+.legend{display:flex;gap:.7rem;font-size:.62rem;color:var(--muted);margin-bottom:.6rem;}
+.legend-dot{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:3px;}
+</style>
+</head>
+<body>
+<h1>🧹 Clean O2 Filter</h1>
+<div class="room-tag">O2 · Outside Corridor · Task 09</div>
+<div class="panel">
+  <div class="instructions">Answer the question to reveal which tiles are clogged. Then click ONLY the clogged tiles to clear them. Click a clean tile and the task fails!</div>
+  <div class="intro-q" id="introQ">
+    <div class="q-text" id="qText"></div>
+    <div class="opts" id="opts"></div>
+    <div class="hint" id="hint"></div>
+  </div>
+  <div class="grid-wrap" id="gridWrap">
+    <div class="legend">
+      <span><span class="legend-dot" style="background:#2a1a00;border:1px solid #f39c12"></span>Clogged</span>
+      <span><span class="legend-dot" style="background:#0a1a20;border:1px solid #1a3a2a"></span>Clean</span>
+      <span><span class="legend-dot" style="background:#0a2a1a;border:1px solid var(--green)"></span>Cleared</span>
+    </div>
+    <div class="filter-grid" id="filterGrid" style="grid-template-columns:repeat(5,1fr)"></div>
+    <div class="timer-bar"><div class="timer-fill" id="tf" style="width:100%"></div></div>
+    <div class="status" id="status">Click the clogged (orange) tiles only</div>
+  </div>
+  <div class="win-box" id="winBox"><h2>✓ FILTER CLEAN</h2><p>All clogged tiles cleared. O2 running.</p><button class="btn-primary" onclick="init()">Play Again</button></div>
+  <div class="lose-box" id="loseBox"><h2>✗ FILTER DAMAGED</h2><p>You hit a clean tile. Reset required.</p><button class="btn-primary" onclick="init()">Retry</button></div>
+</div>
+<a class="back-link" href="../index.html">← Back to Task Hub</a>
+<script src="../js/questions.js"></script>
+<script>
+let tiles=[],clogCount=0,cleared=0,timeLeft=60,timerInt;
+function shuffle(a){return a.sort(()=>Math.random()-.5);}
+function init(){
+  cleared=0;timeLeft=60;clearInterval(timerInt);
+  document.getElementById('winBox').style.display='none';document.getElementById('loseBox').style.display='none';
+  document.getElementById('introQ').style.display='block';document.getElementById('gridWrap').style.display='none';
+  document.getElementById('tf').style.width='100%';
+  const q=getQuestions(1)[0];
+  document.getElementById('qText').textContent='Which gas is clogging the filter? Answer to reveal the grid:\n'+q.q;
+  document.getElementById('hint').textContent='';
+  const pool=ASTRO_QUESTIONS.filter(x=>x.a!==q.a).map(x=>x.a);
+  const opts=shuffle([q.a,...shuffle(pool).slice(0,3)]).map(s=>s.charAt(0).toUpperCase()+s.slice(1));
+  const optsEl=document.getElementById('opts');optsEl.innerHTML='';
+  opts.forEach(o=>{
+    const btn=document.createElement('button');btn.className='opt';btn.textContent=o;
+    btn.onclick=()=>{
+      const ok=o.toLowerCase()===q.a.toLowerCase();btn.classList.add(ok?'correct':'wrong');
+      if(!ok){document.getElementById('hint').textContent='Hint: '+q.hint;return;}
+      setTimeout(()=>{document.getElementById('introQ').style.display='none';startGrid();},500);
+    };optsEl.appendChild(btn);
+  });
+}
+function startGrid(){
+  document.getElementById('gridWrap').style.display='block';
+  // 5x5 grid = 25 tiles, 8 random clogged
+  tiles=Array.from({length:25},(_,i)=>({id:i,clogged:false,cleared:false}));
+  const indices=shuffle([...Array(25).keys()]).slice(0,8);
+  indices.forEach(i=>tiles[i].clogged=true);
+  clogCount=8;cleared=0;
+  buildGrid();
+  timerInt=setInterval(()=>{timeLeft--;document.getElementById('tf').style.width=(timeLeft/60*100)+'%';if(timeLeft<=0){clearInterval(timerInt);document.getElementById('loseBox').style.display='block';}},1000);
+}
+function buildGrid(){
+  const grid=document.getElementById('filterGrid');grid.innerHTML='';
+  tiles.forEach(t=>{
+    const el=document.createElement('div');
+    el.className='tile '+(t.cleared?'cleared':t.clogged?'clogged':'clean');
+    el.textContent=t.cleared?'✓':t.clogged?'●':'';
+    el.onclick=()=>clickTile(t.id,el);
+    grid.appendChild(el);
+  });
+}
+function clickTile(id,el){
+  const t=tiles[id];
+  if(t.cleared)return;
+  if(t.clogged){
+    t.cleared=true;cleared++;
+    el.className='tile cleared';el.textContent='✓';el.onclick=null;
+    document.getElementById('status').textContent=cleared+'/'+clogCount+' cleared';
+    if(cleared>=clogCount){clearInterval(timerInt);document.getElementById('winBox').style.display='block';}
+  } else {
+    el.classList.add('mistake');
+    clearInterval(timerInt);
+    setTimeout(()=>document.getElementById('loseBox').style.display='block',400);
+  }
+}
+init();
+</script>
+</body>
+</html>

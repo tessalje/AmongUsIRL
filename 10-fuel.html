@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Task 10 — Fuel Engines</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+.streak{display:flex;gap:8px;align-items:center;margin-bottom:1.2rem;}
+.streak-label{font-size:.62rem;color:var(--dim);letter-spacing:2px;}
+.streak-pips{display:flex;gap:5px;}
+.pip{width:16px;height:16px;border-radius:4px;background:#1a2a1a;border:1px solid #2a4a2a;transition:all .3s;}
+.pip.lit{background:var(--green);border-color:var(--green);box-shadow:0 0 6px var(--green);}
+.pip.fail{background:var(--red);border-color:var(--red);}
+.canister{text-align:center;margin-bottom:1.2rem;}
+.can-icon{font-size:3rem;}
+.can-level{width:60px;height:120px;background:#060e10;border:2px solid #2a4a3a;border-radius:6px;margin:.5rem auto 0;position:relative;overflow:hidden;}
+.can-fill{position:absolute;bottom:0;left:0;right:0;background:#9b59b6;transition:height .5s;border-radius:0 0 4px 4px;}
+.can-pct{font-family:'Orbitron',monospace;font-size:.75rem;color:#9b59b6;margin-top:.3rem;}
+.q-card{background:#060e10;border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1rem;}
+.q-text{font-size:.75rem;margin-bottom:.8rem;line-height:1.6;}
+.q-num{font-size:.6rem;color:var(--dim);letter-spacing:2px;margin-bottom:.4rem;}
+.opts{display:flex;flex-direction:column;gap:.4rem;}
+.opt{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.45rem .7rem;font-size:.7rem;cursor:pointer;text-align:left;transition:all .2s;}
+.opt:hover{border-color:var(--text);}
+.opt.correct{background:#0a2a1a;border-color:var(--green);color:var(--green);}
+.opt.wrong{background:#2a0a0a;border-color:var(--red);color:var(--red);}
+.hint{font-size:.62rem;color:var(--dim);margin-top:.5rem;}
+.reset-warning{font-size:.68rem;color:var(--red);text-align:center;background:#2a0a0a;border:1px solid #4a1a1a;border-radius:6px;padding:.5rem;margin-top:.5rem;display:none;}
+</style>
+</head>
+<body>
+<h1>🚀 Fuel Engines</h1>
+<div class="room-tag">Lower Engine · Fuel Bay · Task 10</div>
+<div class="panel">
+  <div class="instructions">Answer 5 hard astronomy questions IN A ROW without a single mistake. Each wrong answer resets your streak back to 0. Full streak = fuel transfer authorised!</div>
+  <div class="streak">
+    <div class="streak-label">STREAK</div>
+    <div class="streak-pips" id="pips"></div>
+  </div>
+  <div class="canister">
+    <div class="can-icon">⛽</div>
+    <div class="can-level"><div class="can-fill" id="canFill" style="height:0%"></div></div>
+    <div class="can-pct" id="canPct">0%</div>
+  </div>
+  <div class="q-card" id="qCard">
+    <div class="q-num" id="qNum">QUESTION 1 OF 5</div>
+    <div class="q-text" id="qText"></div>
+    <div class="opts" id="opts"></div>
+    <div class="hint" id="hint"></div>
+  </div>
+  <div class="reset-warning" id="resetWarn">❌ Wrong! Streak reset to 0. Starting over...</div>
+  <div class="timer-bar"><div class="timer-fill" id="tf" style="width:100%"></div></div>
+  <div class="status" id="status">Get 5 in a row to fuel the engine</div>
+  <div class="win-box" id="winBox"><h2>✓ ENGINES FUELLED</h2><p>5 correct in a row! Fuel transfer complete. The ship can now depart.</p><button class="btn-primary" onclick="init()">Play Again</button></div>
+  <div class="lose-box" id="loseBox"><h2>✗ TIME EXPIRED</h2><p>Fuel authorisation failed.</p><button class="btn-primary" onclick="init()">Retry</button></div>
+</div>
+<a class="back-link" href="../index.html">← Back to Task Hub</a>
+<script src="../js/questions.js"></script>
+<script>
+let streak=0,questions=[],qIdx=0,timeLeft=180,timerInt;
+function shuffle(a){return a.sort(()=>Math.random()-.5);}
+function init(){
+  streak=0;qIdx=0;timeLeft=180;clearInterval(timerInt);
+  questions=shuffle([...ASTRO_QUESTIONS]);
+  document.getElementById('winBox').style.display='none';document.getElementById('loseBox').style.display='none';
+  document.getElementById('resetWarn').style.display='none';
+  document.getElementById('tf').style.width='100%';
+  updateUI();showQ();startTimer();
+}
+function updateUI(){
+  const pips=document.getElementById('pips');pips.innerHTML='';
+  for(let i=0;i<5;i++){const p=document.createElement('div');p.className='pip'+(i<streak?' lit':'');pips.appendChild(p);}
+  const pct=Math.round(streak/5*100);
+  document.getElementById('canFill').style.height=pct+'%';
+  document.getElementById('canPct').textContent=pct+'%';
+}
+function generateOpts(q){const pool=ASTRO_QUESTIONS.filter(x=>x.a!==q.a).map(x=>x.a);return shuffle([q.a,...shuffle(pool).slice(0,3)]).map(s=>s.charAt(0).toUpperCase()+s.slice(1));}
+function showQ(){
+  const q=questions[qIdx%questions.length];
+  document.getElementById('qNum').textContent=`QUESTION ${streak+1} OF 5 (streak: ${streak})`;
+  document.getElementById('qText').textContent=q.q;
+  document.getElementById('hint').textContent='';
+  const opts=generateOpts(q);
+  const optsEl=document.getElementById('opts');optsEl.innerHTML='';
+  opts.forEach(o=>{
+    const btn=document.createElement('button');btn.className='opt';btn.textContent=o;
+    btn.onclick=()=>answer(o,q,btn);
+    optsEl.appendChild(btn);
+  });
+}
+function answer(chosen,q,btn){
+  document.querySelectorAll('.opt').forEach(b=>{b.onclick=null;b.style.cursor='default';});
+  const ok=chosen.toLowerCase()===q.a.toLowerCase();
+  btn.classList.add(ok?'correct':'wrong');
+  if(!ok){
+    document.getElementById('hint').textContent='Hint: '+q.hint;
+    // Flash fail pip
+    const pips=document.getElementById('pips');
+    const allPips=pips.querySelectorAll('.pip');
+    allPips.forEach(p=>{p.classList.remove('lit');p.classList.add('fail');});
+    setTimeout(()=>allPips.forEach(p=>{p.classList.remove('fail');}),500);
+    document.getElementById('resetWarn').style.display='block';
+    streak=0;
+    setTimeout(()=>{
+      document.getElementById('resetWarn').style.display='none';
+      qIdx++;updateUI();showQ();
+      document.getElementById('status').textContent='Streak reset! Get 5 in a row.';
+    },1200);
+  } else {
+    streak++;qIdx++;updateUI();
+    document.getElementById('status').textContent=`✓ ${streak}/5 correct!`;
+    if(streak>=5){clearInterval(timerInt);setTimeout(()=>document.getElementById('winBox').style.display='block',600);}
+    else setTimeout(()=>showQ(),700);
+  }
+}
+function startTimer(){timerInt=setInterval(()=>{timeLeft--;document.getElementById('tf').style.width=(timeLeft/180*100)+'%';if(timeLeft<=0){clearInterval(timerInt);document.getElementById('loseBox').style.display='block';}},1000);}
+init();
+</script>
+</body>
+</html>

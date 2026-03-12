@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Task 06 — Clear Asteroids</title>
+<link rel="stylesheet" href="../css/style.css">
+<style>
+.hud{display:flex;justify-content:space-between;font-size:.7rem;margin-bottom:.5rem;max-width:480px;width:100%;}
+.hud span{color:var(--yellow);}
+.game-wrap{background:#030810;border:1px solid var(--border);border-radius:8px;overflow:hidden;position:relative;max-width:480px;width:100%;cursor:crosshair;}
+canvas{display:block;width:100%;height:auto;}
+.overlay{position:absolute;inset:0;background:rgba(3,8,16,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:1.5rem;text-align:center;}
+.overlay h2{font-family:'Orbitron',monospace;font-size:1.2rem;margin-bottom:.5rem;}
+.overlay p{font-size:.7rem;color:var(--muted);margin-bottom:.5rem;line-height:1.6;}
+.overlay .opts{display:flex;flex-direction:column;gap:.4rem;width:100%;max-width:280px;margin:1rem 0;}
+.overlay .opt{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:.45rem .7rem;font-size:.7rem;cursor:pointer;text-align:left;transition:all .2s;}
+.overlay .opt:hover{border-color:var(--text);}
+.overlay .opt.correct{background:#0a2a1a;border-color:var(--green);color:var(--green);}
+.overlay .opt.wrong{background:#2a0a0a;border-color:var(--red);color:var(--red);}
+.miss-row{display:flex;gap:4px;margin-top:.4rem;max-width:480px;width:100%;}
+.miss-dot{width:13px;height:13px;border-radius:50%;background:#1a0a0a;border:1px solid #3a1a1a;}
+.miss-dot.lit{background:var(--red);border-color:var(--red);}
+</style>
+</head>
+<body>
+<h1>☄️ Clear Asteroids</h1>
+<div class="room-tag">Weapons · Gun Bay · Task 06</div>
+<div class="hud">
+  <div>DESTROYED: <span id="killed">0</span>/20</div>
+  <div>TIME: <span id="timer">60</span>s</div>
+  <div>MISSED: <span id="missedCount">0</span>/5</div>
+</div>
+<div class="game-wrap">
+  <canvas id="gc" width="480" height="280"></canvas>
+  <div class="overlay" id="startOverlay">
+    <h2 style="color:var(--yellow)">WEAPONS SYSTEM ONLINE</h2>
+    <p>Before firing, answer this astronomy question.<br>Only then can you shoot!</p>
+    <div class="q-text" id="preQ" style="color:var(--text);font-size:.74rem;margin:.5rem 0;"></div>
+    <div class="opts" id="preOpts"></div>
+    <div style="font-size:.62rem;color:var(--dim)" id="preHint"></div>
+  </div>
+  <div class="overlay" id="winOverlay" style="display:none"><h2 style="color:var(--green)">✓ ASTEROIDS CLEARED</h2><p>All 20 destroyed. Weapons offline.</p><button class="btn-primary" style="max-width:200px" onclick="resetGame()">Play Again</button></div>
+  <div class="overlay" id="loseOverlay" style="display:none"><h2 style="color:var(--red)">✗ SHIP DAMAGED</h2><p>Too many impacts. Task failed.</p><button class="btn-primary" style="max-width:200px" onclick="resetGame()">Retry</button></div>
+</div>
+<div class="miss-row" id="missRow"></div>
+<a class="back-link" href="../index.html">← Back to Task Hub</a>
+<script src="../js/questions.js"></script>
+<script>
+const canvas=document.getElementById('gc'),ctx=canvas.getContext('2d');
+const W=480,H=280;
+let asteroids=[],particles=[],killed=0,missed=0,timeLeft=60,gInt=null,sInt=null,tInt=null,running=false;
+function rnd(a,b){return Math.random()*(b-a)+a;}
+function shuffle(a){return a.sort(()=>Math.random()-.5);}
+
+function buildMissRow(){const r=document.getElementById('missRow');r.innerHTML='';for(let i=0;i<5;i++){const d=document.createElement('div');d.className='miss-dot'+(i<missed?' lit':'');r.appendChild(d);}}
+
+function showPreQuiz(){
+  const q=getQuestions(1)[0];
+  document.getElementById('preQ').textContent=q.q;
+  const opts=shuffle([q.a,...ASTRO_QUESTIONS.filter(x=>x.a!==q.a).map(x=>x.a).sort(()=>Math.random()-.5).slice(0,3)]).map(s=>s.charAt(0).toUpperCase()+s.slice(1));
+  const optsEl=document.getElementById('preOpts');optsEl.innerHTML='';
+  opts.forEach(o=>{
+    const btn=document.createElement('button');btn.className='opt';btn.textContent=o;
+    btn.onclick=()=>{
+      const ok=o.toLowerCase()===q.a.toLowerCase();btn.classList.add(ok?'correct':'wrong');
+      document.querySelectorAll('#preOpts .opt').forEach(b=>{b.onclick=null;b.style.cursor='default';});
+      if(!ok){document.getElementById('preHint').textContent='Hint: '+q.hint;return;}
+      setTimeout(()=>{document.getElementById('startOverlay').style.display='none';startGame();},500);
+    };optsEl.appendChild(btn);
+  });
+}
+
+function spawnAsteroid(){
+  const r=rnd(12,24),speed=rnd(.7,2);
+  const verts=Array.from({length:8},(_,i)=>{const a=(i/8)*Math.PI*2;const rad=r*(.7+Math.random()*.4);return{x:Math.cos(a)*rad,y:Math.sin(a)*rad};});
+  asteroids.push({x:rnd(r,W-r),y:-r,r,speed,rot:0,rotSpeed:rnd(-.03,.03),verts,color:`hsl(${rnd(20,45)},55%,${rnd(30,45)}%)`});
+}
+
+function addParticles(x,y){for(let i=0;i<8;i++){const a=Math.random()*Math.PI*2,s=rnd(1,4);particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,r:rnd(1,2.5)});}}
+
+function loop(){
+  ctx.fillStyle='#030810';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(200,240,208,.25)';
+  for(let i=0;i<30;i++)ctx.fillRect((i*137+23)%W,(i*97+17)%H,1,1);
+  // Ship
+  ctx.strokeStyle='#3498db';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(W/2,H-8);ctx.lineTo(W/2-10,H+2);ctx.lineTo(W/2+10,H+2);ctx.closePath();ctx.stroke();
+  asteroids.forEach((a,i)=>{
+    a.y+=a.speed;a.rot+=a.rotSpeed;
+    ctx.save();ctx.translate(a.x,a.y);ctx.rotate(a.rot);
+    ctx.fillStyle=a.color;ctx.strokeStyle='#c8f0d055';ctx.lineWidth=.8;
+    ctx.beginPath();a.verts.forEach((v,vi)=>{vi===0?ctx.moveTo(v.x,v.y):ctx.lineTo(v.x,v.y);});
+    ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
+    if(a.y-a.r>H){asteroids.splice(i,1);missed++;document.getElementById('missedCount').textContent=missed;buildMissRow();if(missed>=5)endGame(false);}
+  });
+  particles.forEach((p,i)=>{p.x+=p.vx;p.y+=p.vy;p.life-=.06;p.vy+=.1;ctx.fillStyle=`rgba(232,255,107,${p.life})`;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();if(p.life<=0)particles.splice(i,1);});
+}
+
+function getPos(e){const rect=canvas.getBoundingClientRect(),sx=W/rect.width,sy=H/rect.height;const cx=e.touches?e.touches[0].clientX:e.clientX,cy=e.touches?e.touches[0].clientY:e.clientY;return{x:(cx-rect.left)*sx,y:(cy-rect.top)*sy};}
+
+function shoot(e){
+  if(!running)return;e.preventDefault();
+  const {x,y}=getPos(e);
+  for(let i=asteroids.length-1;i>=0;i--){
+    const a=asteroids[i];
+    if(Math.hypot(x-a.x,y-a.y)<a.r){addParticles(a.x,a.y);asteroids.splice(i,1);killed++;document.getElementById('killed').textContent=killed;if(killed>=20)endGame(true);break;}
+  }
+}
+canvas.addEventListener('click',shoot);canvas.addEventListener('touchstart',shoot,{passive:false});
+
+function startGame(){running=true;gInt=setInterval(loop,1000/60);sInt=setInterval(spawnAsteroid,1000);tInt=setInterval(()=>{timeLeft--;document.getElementById('timer').textContent=timeLeft;if(timeLeft<=0)endGame(false);},1000);}
+
+function endGame(won){running=false;clearInterval(gInt);clearInterval(sInt);clearInterval(tInt);setTimeout(()=>{document.getElementById(won?'winOverlay':'loseOverlay').style.display='flex';},200);}
+
+function resetGame(){asteroids=[];particles=[];killed=0;missed=0;timeLeft=60;document.getElementById('killed').textContent=0;document.getElementById('missedCount').textContent=0;document.getElementById('timer').textContent=60;document.getElementById('winOverlay').style.display='none';document.getElementById('loseOverlay').style.display='none';document.getElementById('preHint').textContent='';document.getElementById('startOverlay').style.display='flex';buildMissRow();showPreQuiz();}
+
+buildMissRow();showPreQuiz();
+</script>
+</body>
+</html>
